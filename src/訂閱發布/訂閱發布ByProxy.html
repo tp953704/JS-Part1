@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+    <div id="app"></div>
+    <button id="btnAdd">count++</button>
+    <button id="btnDecrease">count--</button>
+
+    <script>
+        let activeEffect = null;
+
+		class Dep {
+			subscribers = new Set()
+
+			depend() {
+				if(activeEffect) {
+					this.subscribers.add(activeEffect)
+				}
+			} 
+				
+			notify() {
+				this.subscribers.forEach(effect => {
+					effect()
+				})
+			}
+		}
+
+
+        const targetMap = new WeakMap()
+        function getDep(target,key){
+            let depMap = targetMap.get(target);
+            if(!depMap){
+                depMap = new Map()
+                targetMap.set(target,depMap)
+            }
+            let dep = depMap.get(key)
+            if(!dep){
+                dep = new Dep()
+                depMap.set(key,dep)
+            }
+            return dep;
+        }
+
+        function reactive(obj){
+            const observe = new Proxy(obj,{
+                set(target,key,value,receive){
+                    
+                    const dep = getDep(target,key);
+                    const result = Reflect.set(target, key, value,receive)
+                    dep.notify()
+                    return result
+                },
+                get(target,key,receive){
+                    const dep = getDep(target,key);
+                    dep.depend(activeEffect)
+                    return Reflect.get(target,key,receive)
+                }
+            })
+            return observe;
+        }
+
+        const watchEffect = (cb) => {
+            activeEffect = cb
+            cb()
+            activeEffect = null
+        }
+
+
+        const proxyData = reactive({a:1})
+
+        function showData() {
+            document.getElementById('app').innerHTML = proxyData.a
+        }
+
+        watchEffect(showData)
+        const btnAdd = document.getElementById('btnAdd')
+        const btnDecrease = document.getElementById('btnDecrease')
+
+        btnAdd.addEventListener('click', function() {
+            proxyData.a++
+        })
+        btnDecrease.addEventListener('click', function() {
+            proxyData.a--
+        })
+    </script>
+</body>
+</html>
